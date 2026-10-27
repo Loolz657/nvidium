@@ -28,4 +28,14 @@ public class GlFence extends TrackedObject {
         super.free0();
         glDeleteSync(this.fence);
     }
+
+    /** Wait only for commands preceding this fence, rather than draining the whole GPU. */
+    public void await() {
+        this.assertNotFreed();
+        while (!this.signaled) {
+            int result = glClientWaitSync(this.fence, GL_SYNC_FLUSH_COMMANDS_BIT, 1_000_000L);
+            if (result == GL_ALREADY_SIGNALED || result == GL_CONDITION_SATISFIED) this.signaled = true;
+            else if (result != GL_TIMEOUT_EXPIRED) throw new IllegalStateException("Waiting for upload fence failed: " + result);
+        }
+    }
 }

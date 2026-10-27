@@ -1,6 +1,5 @@
 package me.cortex.nvidium.gl.buffers;
 
-import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import me.cortex.nvidium.Nvidium;
 import me.cortex.nvidium.gl.GlObject;
 import org.lwjgl.opengl.ARBSparseBuffer;
@@ -49,41 +48,29 @@ public class PersistentSparseAddressableBuffer extends GlObject implements IDevi
         ARBSparseBuffer.glBufferPageCommitmentARB(GL15.GL_ARRAY_BUFFER, offset, size, commit);
     }
 
-    private final Int2IntOpenHashMap allocationCount = new Int2IntOpenHashMap();
-
-    private void allocatePages(int page, int pageCount) {
-        doCommit(id, PAGE_SIZE * page, PAGE_SIZE * pageCount, true);
-        for (int i = 0; i < pageCount; i++) {
-            allocationCount.addTo(i+page,1);
-        }
-    }
-
-    private void deallocatePages(int page, int pageCount) {
-        for (int i = 0; i < pageCount; i++) {
-            int newCount = allocationCount.get(i+page) - 1;
-            if (newCount != 0) {
-                allocationCount.put(i+page, newCount);
-            } else {
-                allocationCount.remove(i+page);
-                doCommit(id, PAGE_SIZE * (page+i), PAGE_SIZE,false);
-            }
-        }
-    }
+    private final SparsePageTracker pages = new SparsePageTracker((first, count, resident) ->
+            doCommit(id, PAGE_SIZE * first, PAGE_SIZE * count, resident));
 
     public int getPagesCommitted() {
-        return allocationCount.size();
+        return pages.residentPages();
     }
 
     public void ensureAllocated(long addr, long size) {
+        validateRange(addr, size);
         int pstart = (int) (addr/PAGE_SIZE);
         int pend   = (int) ((addr+size+PAGE_SIZE-1)/PAGE_SIZE);
-        allocatePages(pstart, pend-pstart);
+        pages.retain(pstart, pend-pstart);
     }
 
     public void deallocate(long addr, long size) {
+        validateRange(addr, size);
         int pstart = (int) (addr/PAGE_SIZE);
         int pend   = (int) ((addr+size+PAGE_SIZE-1)/PAGE_SIZE);
-        deallocatePages(pstart, pend-pstart);
+        pages.release(pstart, pend-pstart);
+    }
+
+    private void validateRange(long offset, long length) {
+        if (offset < 0 || length <= 0 || offset > this.size - length) throw new IllegalArgumentException("Sparse buffer range out of bounds");
     }
 
     @Override
