@@ -9,6 +9,8 @@ import com.mojang.renderpearl.backend.opengl.GlStateManager;
 import com.mojang.renderpearl.backend.opengl.GlTexture;
 import me.cortex.nvidium.gl.shader.Shader;
 import me.cortex.nvidium.sodiumCompat.ShaderLoader;
+import me.cortex.nvidium.sodiumCompat.IrisCheck;
+import me.cortex.nvidium.sodiumCompat.iris.IrisMeshBridge;
 import net.caffeinemc.mods.sodium.client.render.chunk.terrain.TerrainRenderPass;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ShaderDefines;
@@ -41,6 +43,13 @@ public class TemporalTerrainRasterizer extends Phase {
     }
 
     public void raster(TerrainRenderPass pass, int regionCount, long commandAddr, GpuSampler terrainSampler) {
+        if (IrisCheck.bridgeActive()) {
+            timing.marker();
+            IrisMeshBridge.raster(pass, regionCount, commandAddr, terrainSampler, true);
+            timing.marker();
+            timing.tick();
+            return;
+        }
         shader.bind();
 
         GpuTextureView blockTexture = pass.getAtlas();

@@ -12,6 +12,8 @@ import me.cortex.nvidium.managers.RegionVisibilityTracker;
 import me.cortex.nvidium.managers.SectionManager;
 import me.cortex.nvidium.mixin.minecraft.TextureAtlasAccessor;
 import me.cortex.nvidium.renderers.*;
+import me.cortex.nvidium.sodiumCompat.IrisCheck;
+import me.cortex.nvidium.sodiumCompat.iris.IrisMeshBridge;
 import me.cortex.nvidium.util.*;
 import net.caffeinemc.mods.sodium.client.SodiumClientMod;
 import net.caffeinemc.mods.sodium.client.gpu.GPULimits;
@@ -127,7 +129,7 @@ public class RenderPipeline {
         this.uploadStream = uploadStream;
         this.downloadStream = downloadStream;
         this.sectionManager = sectionManager;
-        this.compiledForFog = Nvidium.config.render_fog;
+        this.compiledForFog = IrisCheck.useNvidiumFog();
 
         terrainRasterizer = new PrimaryTerrainRasterizer();
         regionRasterizer = new RegionRasterizer();
@@ -232,6 +234,9 @@ public class RenderPipeline {
 
         float subTexelWidth = (float)(subTexelOffset - (((1.0D / textureAtlas.nvidium$getWidth()) / subTexelPrecision)));
         float subTexelHeight = (float)(subTexelOffset - (((1.0D / textureAtlas.nvidium$getHeight()) / subTexelPrecision)));
+        if (IrisCheck.bridgeActive()) IrisMeshBridge.prepareFrame(sceneUniform.getId(), sectionManager.terrainAreana.buffer.getId(), sectionManager.terrainAreana.getCapacityBytes(),
+                crm, fogParameters, px, py, pz, 1.0f / textureAtlas.nvidium$getWidth(), 1.0f / textureAtlas.nvidium$getHeight(),
+                subTexelWidth, subTexelHeight);
 
         int visibleRegions = 0;
 
@@ -619,7 +624,7 @@ public class RenderPipeline {
     }
 
     public void reloadShaders() {
-        this.compiledForFog = Nvidium.config.render_fog;
+        this.compiledForFog = IrisCheck.useNvidiumFog();
         terrainRasterizer.delete();
         regionRasterizer.delete();
         sectionRasterizer.delete();

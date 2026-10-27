@@ -1,0 +1,7 @@
+{
+  "required": true,
+  "package": "me.cortex.nvidium.smoke.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "client": ["HiddenTestWindow", "FrameTimeMixin"],
+  "injectors": { "defaultRequire": 1 }
+}

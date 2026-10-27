@@ -52,11 +52,9 @@ public class SodiumResultCompatibility {
     }
 
 
-    private static void copyQuad(long from, long too) {
+    private static void copyQuad(long from, long too, int formatSize) {
         //Quads are 64 bytes big using NvidiumCompactChunkVertex otherwise 80 bytes using CompactChunkVertex
-        long quadSize = Nvidium.config.use_sodium_vertex_format ?
-                CompactChunkVertex.STRIDE * 4 :
-                NvidiumCompactChunkVertex.STRIDE * 4;
+        long quadSize = formatSize * 4L;
         MemoryUtil.memCopy(from, too, quadSize);
     }
 
@@ -156,7 +154,7 @@ public class SodiumResultCompatibility {
                     long base = src + (long) j * formatSize;
 
                     float x, y, z;
-                    if (Nvidium.config.use_sodium_vertex_format) {
+                    if (IrisCheck.useSodiumVertexFormat()) {
                         int hi = MemoryUtil.memGetInt(base);
                         int lo = MemoryUtil.memGetInt(base + 4);
 
@@ -209,7 +207,7 @@ public class SodiumResultCompatibility {
 
             for (int i = 0; i < sortingData.length; i++) {
                 long data = sortingData[i];
-                copyQuad(srcs[(int) (data&7)] + ((data>>3)&((1L<<29)-1))*4*formatSize, outPtr + ((sortingData.length-1)-i) * 4L * formatSize);
+                copyQuad(srcs[(int) (data&7)] + ((data>>3)&((1L<<29)-1))*4*formatSize, outPtr + ((sortingData.length-1)-i) * 4L * formatSize, formatSize);
             }
             offset += quadCount;
         }
@@ -269,7 +267,7 @@ public class SodiumResultCompatibility {
     private static void updateSectionBounds(Vector3i min, Vector3i max, long vertex) {
         float x, y, z;
 
-        if (Nvidium.config.use_sodium_vertex_format) {
+        if (IrisCheck.useSodiumVertexFormat()) {
             int hi = MemoryUtil.memGetInt(vertex);
             int lo = MemoryUtil.memGetInt(vertex + 4);
 

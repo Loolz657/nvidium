@@ -1,6 +1,7 @@
 package me.cortex.nvidium.util;
 
 import me.cortex.nvidium.Nvidium;
+import me.cortex.nvidium.sodiumCompat.IrisCheck;
 import me.cortex.nvidium.gl.RenderDevice;
 import me.cortex.nvidium.gl.buffers.IDeviceMappedBuffer;
 import me.cortex.nvidium.gl.buffers.PersistentSparseAddressableBuffer;
@@ -27,6 +28,7 @@ public class BufferArena {
             buffer = device.createDeviceOnlyMappedBuffer(memory);
             this.segments.setLimit(memory/(4L*this.vertexFormatSize));
         }
+        if (IrisCheck.bridgeActive()) this.segments.setLimit(memory / (4L * this.vertexFormatSize));
         //Reserve index 0
         this.allocQuads(1);
     }
@@ -66,6 +68,8 @@ public class BufferArena {
             return (int) (memory_size/(1024*1024));
         }
     }
+
+    public long getCapacityBytes() { return memory_size; }
 
     public int getUsedMB() {
         return (int) ((totalQuads * vertexFormatSize * 4)/(1024*1024));

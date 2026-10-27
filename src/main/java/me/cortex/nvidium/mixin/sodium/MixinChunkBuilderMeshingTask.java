@@ -2,6 +2,7 @@ package me.cortex.nvidium.mixin.sodium;
 
 import me.cortex.nvidium.Nvidium;
 import me.cortex.nvidium.sodiumCompat.IRepackagedResult;
+import me.cortex.nvidium.sodiumCompat.IrisCheck;
 import me.cortex.nvidium.sodiumCompat.NvidiumCompactChunkVertex;
 import me.cortex.nvidium.sodiumCompat.SodiumResultCompatibility;
 import net.caffeinemc.mods.sodium.client.render.chunk.compile.ChunkBuildContext;
@@ -22,12 +23,12 @@ public class MixinChunkBuilderMeshingTask {
     @Inject(method = "execute(Lnet/caffeinemc/mods/sodium/client/render/chunk/compile/ChunkBuildContext;Lnet/caffeinemc/mods/sodium/client/util/task/CancellationToken;)Lnet/caffeinemc/mods/sodium/client/render/chunk/compile/ChunkBuildOutput;", at = @At("HEAD"))
     private void captureVertexFormat(ChunkBuildContext buildContext, CancellationToken cancellationToken, CallbackInfoReturnable<ChunkBuildOutput> cir) {
         // Capture vertex stride at start to prevent a crash if config is reloaded before end of task (there is maybe a cleaner way to do it ?)
-        formatSize = Nvidium.config.use_sodium_vertex_format ? ChunkMeshFormats.COMPACT.getVertexFormat().getVertexSize() : NvidiumCompactChunkVertex.STRIDE;
+        formatSize = Nvidium.IS_ENABLED ? IrisCheck.vertexStride() : 0;
     }
 
     @Inject(method = "execute(Lnet/caffeinemc/mods/sodium/client/render/chunk/compile/ChunkBuildContext;Lnet/caffeinemc/mods/sodium/client/util/task/CancellationToken;)Lnet/caffeinemc/mods/sodium/client/render/chunk/compile/ChunkBuildOutput;", at = @At("TAIL"))
     private void repackageResults(ChunkBuildContext buildContext, CancellationToken cancellationToken, CallbackInfoReturnable<ChunkBuildOutput> cir) {
-        if (Nvidium.IS_ENABLED) {
+        if (Nvidium.IS_ENABLED && formatSize != 0) {
             var result = cir.getReturnValue();
             if (result != null && !cancellationToken.isCancelled()) {
                 ((IRepackagedResult) result).set(SodiumResultCompatibility.repackage(result, formatSize));

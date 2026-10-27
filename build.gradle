@@ -46,6 +46,10 @@ base {
     archivesName = "nvidium"
 }
 
+tasks.named('jar') {
+    from('LICENSE.txt') { into 'META-INF'; rename { 'LICENSE-nvidium.txt' } }
+}
+
 processResources {
     def version = project.version
 
@@ -57,6 +61,7 @@ processResources {
 }
 
 repositories {
+    mavenCentral()
     exclusiveContent {
         forRepository {
             maven {
@@ -93,6 +98,108 @@ dependencies {
     //modImplementation "maven.modrinth:c2me-fabric:0.2.0+alpha.10.49+1.19.4"
     //modImplementation "maven.modrinth:chunks-fade-in:v1.0.3-1.19.4"
     //modImplementation "maven.modrinth:immersiveportals:v2.7.3-mc1.19.4"
-    compileOnly "maven.modrinth:iris:1.11.6+26.3-fabric"
+    compileOnly "maven.modrinth:iris:1.11.7+26.3-fabric"
+    runtimeOnly "maven.modrinth:iris:1.11.7+26.3-fabric"
+    compileOnly "io.github.douira:glsl-transformer:3.0.0-pre3"
+    compileOnly "org.antlr:antlr4-runtime:4.13.1"
+
+    testImplementation "io.github.douira:glsl-transformer:3.0.0-pre3"
+    testImplementation "org.antlr:antlr4-runtime:4.13.1"
+    testImplementation platform("org.junit:junit-bom:5.11.4")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+    testImplementation "org.lwjgl:lwjgl-glfw:3.4.3"
+    def os = System.getProperty('os.name').toLowerCase(Locale.ROOT)
+    def arch = System.getProperty('os.arch').toLowerCase(Locale.ROOT)
+    def natives = os.contains('win') ? 'natives-windows' : os.contains('mac') ? 'natives-macos' : 'natives-linux'
+    if (arch == 'aarch64' || arch == 'arm64') natives += '-arm64'
+    testRuntimeOnly "org.lwjgl:lwjgl-glfw:3.4.3:${natives}"
+    testImplementation "maven.modrinth:iris:1.11.7+26.3-fabric"
+    testImplementation "org.anarres:jcpp:1.4.14"
+    if (providers.gradleProperty('euphoriaTests').isPresent()) {
+        runtimeOnly files('../reference-packs/patcher/EuphoriaPatcher-1.10.5-r5.9.3-fabric.jar')
+    }
+}
+
+test {
+    useJUnitPlatform()
+    systemProperty 'nvidium.gpuTests', System.getProperty('nvidium.gpuTests', 'false')
+    systemProperty 'nvidium.referencePacks', System.getProperty('nvidium.referencePacks', file('../reference-packs').absolutePath)
+    jvmArgs '--enable-native-access=ALL-UNNAMED'
+}
+
+// Separate development mod: verifies real Fabric/Mixin transformation, then exits.
+// It is never included in the user-facing Nvidium JAR.
+sourceSets {
+    smoke {
+        compileClasspath += sourceSets.main.compileClasspath
+        compileClasspath += sourceSets.main.output
+    }
+}
+
+dependencies {
+    smokeCompileOnly(fabricApi.module('fabric-lifecycle-events-v1', project.fabric_version))
+}
+
+tasks.register('smokeJar', Jar) {
+    dependsOn tasks.named('smokeClasses')
+    from sourceSets.smoke.output
+    archiveFileName = 'nvidium-iris-smoke.jar'
+    destinationDirectory = layout.buildDirectory.dir('smoke')
+}
+
+loom {
+    runs {
+        irisSmoke {
+            client()
+            name = 'Nvidium Iris integration smoke test'
+            runDir = 'run-smoke'
+            vmArgs '-Dfabric.addMods=' + file('build/smoke/nvidium-iris-smoke.jar').absolutePath,
+                    '-Dnvidium.iris.experimental=true', '--enable-native-access=ALL-UNNAMED'
+        }
+        irisRender {
+            client()
+            name = 'Nvidium Iris isolated render test'
+            runDir = 'run-render'
+            vmArgs '-Dfabric.addMods=' + file('build/smoke/nvidium-iris-smoke.jar').absolutePath,
+                    '-Dnvidium.iris.experimental=true', '-Dnvidium.smoke.mode=world', '--enable-native-access=ALL-UNNAMED'
+            if (providers.gradleProperty('euphoriaTests').isPresent()) vmArgs '-Dnvidium.smoke.euphoria=true'
+        }
+    }
+}
+
+tasks.named('runIrisSmoke') {
+    dependsOn tasks.named('smokeJar')
+}
+
+tasks.register('prepareIrisRender') {
+    doLast {
+        copy {
+            from file('../reference-packs')
+            include 'ComplementaryReimagined_r5.9.3.zip', 'ComplementaryUnbound_r5.9.3.zip'
+            if (providers.gradleProperty('euphoriaTests').isPresent()) {
+                include 'ComplementaryReimagined_r5.9.3 + EuphoriaPatches_1.10.5/**', 'ComplementaryUnbound_r5.9.3 + EuphoriaPatches_1.10.5/**'
+            }
+            into file('run-render/shaderpacks')
+        }
+        file('run-render/config').mkdirs()
+        def pack = providers.gradleProperty('euphoriaTests').isPresent() ? 'ComplementaryReimagined_r5.9.3 + EuphoriaPatches_1.10.5' : 'ComplementaryReimagined_r5.9.3.zip'
+        file('run-render/config/iris.properties').text = """enableShaders=true
+shaderPack=${pack}
+disableUpdateMessage=true
+enableDebugOptions=false
+"""
+        if (!file('run-render/options.txt').exists()) file('run-render/options.txt').text = '''renderDistance:6
+simulationDistance:5
+maxFps:60
+enableVsync:false
+pauseOnLostFocus:false
+onboardAccessibility:false
+graphicsBackend:opengl
+'''
+    }
+}
+tasks.named('runIrisRender') {
+    dependsOn tasks.named('smokeJar'), tasks.named('prepareIrisRender')
 }
 

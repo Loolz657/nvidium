@@ -6,6 +6,7 @@ import me.cortex.nvidium.config.TranslucencySortingLevel;
 import me.cortex.nvidium.gl.RenderDevice;
 import me.cortex.nvidium.managers.SectionManager;
 import me.cortex.nvidium.sodiumCompat.NvidiumCompactChunkVertex;
+import me.cortex.nvidium.sodiumCompat.IrisCheck;
 import me.cortex.nvidium.util.DownloadTaskStream;
 import me.cortex.nvidium.util.UploadingBufferStream;
 import net.caffeinemc.mods.sodium.client.SodiumClientMod;
@@ -30,6 +31,8 @@ import java.util.List;
 
 import static org.lwjgl.opengl.GL11.glGetInteger;
 import static org.lwjgl.opengl.NVXGPUMemoryInfo.GL_GPU_MEMORY_INFO_CURRENT_AVAILABLE_VIDMEM_NVX;
+import static org.lwjgl.opengl.GL32C.glGetInteger64;
+import static org.lwjgl.opengl.GL43C.GL_MAX_SHADER_STORAGE_BLOCK_SIZE;
 
 public class NvidiumWorldRenderer {
     private static final RenderDevice device = new RenderDevice();
@@ -55,7 +58,7 @@ public class NvidiumWorldRenderer {
 
         update_allowed_memory();
         //this.sectionManager = new SectionManager(device, max_geometry_memory*1024*1024, uploadStream, 150, 24, CompactChunkVertex.STRIDE);
-        this.sectionManager = new SectionManager(device, max_geometry_memory*1024*1024, uploadStream, Nvidium.config.use_sodium_vertex_format ? ChunkMeshFormats.COMPACT.getVertexFormat().getVertexSize() : NvidiumCompactChunkVertex.STRIDE, this);
+        this.sectionManager = new SectionManager(device, max_geometry_memory*1024*1024, uploadStream, IrisCheck.vertexStride(), this);
         this.renderPipeline = new RenderPipeline(device, uploadStream, downloadStream, sectionManager);
     }
 
@@ -107,6 +110,7 @@ public class NvidiumWorldRenderer {
 
     public void addDebugInfo(ArrayList<String> debugInfo) {
         debugInfo.add("Using nvidium renderer: "+ Nvidium.MOD_VERSION);
+        if (IrisCheck.bridgeActive()) debugInfo.add("Experimental Iris bridge: mesh terrain; Sodium shadows/water");
         /*
         debugInfo.add("Memory limit: " + max_geometry_memory + " mb");
         debugInfo.add("Terrain Memory MB: " +);
@@ -130,6 +134,12 @@ public class NvidiumWorldRenderer {
             max_geometry_memory = Math.max(2048, max_geometry_memory);//Minimum 2 gb of vram
         } else {
             max_geometry_memory = Nvidium.config.max_geometry_memory;
+        }
+        if (IrisCheck.bridgeActive()) {
+            // Byte-addressed SSBO loads must stay within both the driver's block limit
+            // and the adapter's 32-bit address range, even with a larger sparse arena.
+            long storageLimitMb = Math.min(2047, glGetInteger64(GL_MAX_SHADER_STORAGE_BLOCK_SIZE) / (1024 * 1024));
+            max_geometry_memory = Math.min(max_geometry_memory, storageLimitMb);
         }
     }
 

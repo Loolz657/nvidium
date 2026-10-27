@@ -10,6 +10,7 @@ import me.cortex.nvidium.NvidiumWorldRenderer;
 import me.cortex.nvidium.mixin.minecraft.FrontendCommandEncoderAccessor;
 import me.cortex.nvidium.mixin.minecraft.GlCommandEncoderAccessor;
 import me.cortex.nvidium.sodiumCompat.INvidiumWorldRendererGetter;
+import me.cortex.nvidium.sodiumCompat.IrisCheck;
 import net.caffeinemc.mods.sodium.client.render.SodiumWorldRenderer;
 import net.caffeinemc.mods.sodium.client.render.chunk.ChunkRenderMatrices;
 import net.caffeinemc.mods.sodium.client.render.chunk.RenderSectionManager;
@@ -52,6 +53,7 @@ public abstract class MixinSodiumWorldRenderer implements INvidiumWorldRendererG
     @Inject(method = "renderLayer", at = @At(value = "HEAD"), cancellable = true)
     public void renderLayer(ChunkRenderMatrices matrices, TerrainRenderPass pass, double x, double y, double z, FogParameters fogParameters, GpuSampler terrainSampler, RenderPass renderPass, OitStage stage, CallbackInfo ci) {
         if (Nvidium.IS_ENABLED) {
+            if (IrisCheck.bridgeActive() && (IrisCheck.shadowPass() || pass == DefaultTerrainRenderPasses.TRANSLUCENT)) return;
             ci.cancel();
             if (pass == DefaultTerrainRenderPasses.CUTOUT) // Early exit, cutout will be rendered with SOLID
                 return;

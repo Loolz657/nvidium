@@ -13,6 +13,16 @@ public class ShaderLoader {
     }
 
     public static String parse(Identifier path, ShaderDefines.Builder builder) {
+        return parse(path, builder, false);
+    }
+
+    public static String parseIrisTask(Identifier path) {
+        // Iris's public API still reports the previous pipeline while the next one
+        // is being constructed. Task layouts must not depend on that transient state.
+        return parse(path, ShaderDefines.builder(), true);
+    }
+
+    private static String parse(Identifier path, ShaderDefines.Builder builder, boolean irisTask) {
         if (Nvidium.IS_DEBUG) {
             builder.define("DEBUG");
         }
@@ -32,11 +42,11 @@ public class ShaderLoader {
             builder.define("TRANSLUCENCY_SORTING_SODIUM");
         }
 
-        if (Nvidium.config.render_fog) {
+        if (!irisTask && IrisCheck.useNvidiumFog()) {
             builder.define("RENDER_FOG");
         }
 
-        if (Nvidium.config.use_sodium_vertex_format) {
+        if (irisTask || IrisCheck.useSodiumVertexFormat()) {
             builder.define("USE_SODIUM_VERTEX_FORMAT");
         }
         if (Nvidium.config.cull_degenerate_triangles) {

@@ -3,6 +3,7 @@ package me.cortex.nvidium.mixin.sodium;
 import me.cortex.nvidium.Nvidium;
 import me.cortex.nvidium.NvidiumWorldRenderer;
 import me.cortex.nvidium.sodiumCompat.INvidiumWorldRendererSetter;
+import me.cortex.nvidium.sodiumCompat.IrisCheck;
 import net.caffeinemc.mods.sodium.client.render.chunk.UniformBufferManager;
 import net.caffeinemc.mods.sodium.client.render.chunk.compile.BuilderTaskOutput;
 import net.caffeinemc.mods.sodium.client.render.chunk.region.RenderRegion;
@@ -24,7 +25,8 @@ public abstract class MixinRenderRegionManager implements INvidiumWorldRendererS
             at = @At(value = "HEAD"), cancellable = true)
     private void redirectUpload(Collection<BuilderTaskOutput> results, UniformBufferManager uniforms, CallbackInfo ci) {
         if (Nvidium.IS_ENABLED) {
-            ci.cancel();
+            // Preserve Sodium's own meshes for Iris shadow and translucent passes.
+            if (!IrisCheck.bridgeActive()) ci.cancel();
             for (BuilderTaskOutput result : results) {
                 renderer.uploadBuildResult(result);
             }
